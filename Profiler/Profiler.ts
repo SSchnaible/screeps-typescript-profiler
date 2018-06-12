@@ -41,8 +41,8 @@ export function init(): Profiler {
       return "Profiler Memory cleared";
     },
 
-    output() {
-      outputProfilerData();
+    output(sortBy?: string) {
+      outputProfilerData(sortBy);
       return "Done";
     },
 
@@ -70,7 +70,8 @@ export function init(): Profiler {
       return "Profiler.start() - Starts the profiler\n" +
           "Profiler.stop() - Stops/Pauses the profiler\n" +
           "Profiler.status() - Returns whether is profiler is currently running or not\n" +
-          "Profiler.output() - Pretty-prints the collected profiler data to the console\n" +
+          "Profiler.output(sortBy ?: string) - Pretty-prints the collected profiler data to the console\n" +
+          "    sortBy: name, calls, cpuPerCall, callsPerTick, cpuPerTick (default)\n" +
           this.status();
      },
   };
@@ -99,12 +100,60 @@ function wrapFunction(obj: object, key: PropertyKey, className?: string) {
 
   ///////////
 
-  Reflect.set(obj, key, function(this: any, ...args: any[]) {
+  Reflect.set(obj, key, profileFn(memKey, originalFunction));
+}
+
+export function profileFn(memKey: string, fn: Function): Function {
+  if (__PROFILER_ENABLED__) {
+    return function(this: any, ...args: any[]) {
+      if (isEnabled()) {
+        const start = Game.cpu.getUsed();
+        const result = fn.apply(this, args);
+        const end = Game.cpu.getUsed();
+        record(memKey, end - start);
+        return result;
+      }
+      return fn.apply(this, args);
+    };
+  } else {
+    return fn;
+  }
+}
+
+export function profileApiAction(target: object, key: PropertyKey): void {
+  if (!__PROFILER_ENABLED__) { return; }
+
+  const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
+  if (!descriptor || descriptor.get || descriptor.set) {
+    console.log(`Failed to profile ${key} because it is a getter or setter`);
+    return;
+  }
+
+  if (key === "constructor") {
+    console.log(`Failed to profile ${key} because it is a constructor`);
+    return;
+  }
+
+  const originalFunction = descriptor.value;
+  if (!originalFunction || typeof originalFunction !== "function") {
+    console.log(`Failed to profile ${key} because it is not a function`);
+    return;
+  }
+
+  // set a tag so we don't wrap a function twice
+  const savedName = `__${key}__`;
+  if (Reflect.has(target, savedName)) { return; }
+
+  Reflect.set(target, savedName, originalFunction);
+
+  ///////////
+
+  Reflect.set(target, key, function(this: any, ...args: any[]) {
     if (isEnabled()) {
-      const start = Game.cpu.getUsed();
       const result = originalFunction.apply(this, args);
-      const end = Game.cpu.getUsed();
-      record(memKey, end - start);
+      if (result == OK) {
+        record('API Action', 0.2);
+      }
       return result;
     }
     return originalFunction.apply(this, args);
@@ -161,7 +210,7 @@ interface OutputData {
   cpuPerTick: number;
 }
 
-function outputProfilerData() {
+function outputProfilerData(sortBy: string = "cpuPerTick") {
   let totalTicks = Memory.profiler.total;
   if (Memory.profiler.start) {
     totalTicks += Game.time - Memory.profiler.start;
@@ -186,7 +235,7 @@ function outputProfilerData() {
     return result as OutputData;
   });
 
-  data.sort((lhs, rhs) => rhs.cpuPerTick - lhs.cpuPerTick);
+  data.sort((lhs, rhs) => (_.get(rhs, sortBy) as number) - (_.get(lhs, sortBy) as number));
 
   ///////
   // Format data
@@ -216,6 +265,7 @@ function outputProfilerData() {
   //// Footer line
   output += `${totalTicks} total ticks measured`;
   output += `\t\t\t${totalCpu.toFixed(2)} average CPU profiled per tick`;
+  output += `\t\t\tsorted by ${sortBy}`;
   console.log(output);
 }
 
