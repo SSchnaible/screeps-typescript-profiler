@@ -151,8 +151,8 @@ export function profileApiAction(target: object, key: PropertyKey): void {
   Reflect.set(target, key, function(this: any, ...args: any[]) {
     if (isEnabled()) {
       const result = originalFunction.apply(this, args);
-      if (result == OK) {
-        record('API Action', 0.2);
+      if (result === OK) {
+        record("API Action", 0.2);
       }
       return result;
     }
