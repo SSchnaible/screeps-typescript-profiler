@@ -24,7 +24,6 @@ interface Profiler {
 
 declare const __PROFILER_ENABLED__: boolean;
 
-/* tslint:disable:ban-types */
 export function init(): Profiler {
   const defaults = {
     data: {},
@@ -68,12 +67,12 @@ export function init(): Profiler {
 
     help() {
       return "Profiler.start() - Starts the profiler\n" +
-          "Profiler.stop() - Stops/Pauses the profiler\n" +
-          "Profiler.status() - Returns whether is profiler is currently running or not\n" +
-          "Profiler.output(sortBy ?: string) - Pretty-prints the collected profiler data to the console\n" +
-          "    sortBy: name, calls, cpuPerCall, callsPerTick, cpuPerTick (default)\n" +
-          this.status();
-     },
+        "Profiler.stop() - Stops/Pauses the profiler\n" +
+        "Profiler.status() - Returns whether is profiler is currently running or not\n" +
+        "Profiler.output(sortBy ?: string) - Pretty-prints the collected profiler data to the console\n" +
+        "    sortBy: name, calls, cpuPerCall, callsPerTick, cpuPerTick (default)\n" +
+        this.status();
+    },
   };
 
   return cli;
@@ -105,7 +104,7 @@ function wrapFunction(obj: object, key: PropertyKey, className?: string) {
 
 export function profileFn(memKey: string, fn: Function): Function {
   if (__PROFILER_ENABLED__) {
-    return function(this: any, ...args: any[]) {
+    return function (this: any, ...args: any[]) {
       if (isEnabled()) {
         const start = Game.cpu.getUsed();
         const result = fn.apply(this, args);
@@ -148,7 +147,7 @@ export function profileApiAction(target: object, key: PropertyKey): void {
 
   ///////////
 
-  Reflect.set(target, key, function(this: any, ...args: any[]) {
+  Reflect.set(target, key, function (this: any, ...args: any[]) {
     if (isEnabled()) {
       const result = originalFunction.apply(this, args);
       if (result === OK) {
